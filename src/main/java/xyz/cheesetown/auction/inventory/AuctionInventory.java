@@ -22,6 +22,7 @@ import xyz.cheesetown.auction.utils.InventoryUtil;
 import xyz.cheesetown.auction.utils.InventoryUtil.VerifyEnum;
 import xyz.cheesetown.auction.utils.ItemBuilder;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -48,7 +49,6 @@ public class AuctionInventory implements InventoryHolder, Listener {
         this.player = player;
 
         init();
-        Bukkit.getPluginManager().registerEvents(this, CTAuction.getInstance());
     }
 
     private void init() {
@@ -98,22 +98,22 @@ public class AuctionInventory implements InventoryHolder, Listener {
 
         int pos = 9;
 
-        System.out.println(itemList.size());
-
         for (int i = 0; i < ITEM_PER_PAGE; i++) {
 
             while (pos % 9 == 0 || pos % 9 == 8) {
                 pos += 1;
             }
 
-            System.out.println(i + (ITEM_PER_PAGE * (page)) + ", " + pos + ", " + (itemList.size() <= i + (ITEM_PER_PAGE * (page))));
             if (itemList.size() <= i + (ITEM_PER_PAGE * (page))) {
                 inventory.setItem(pos, null);
+                pos++;
                 continue;
             }
 
             ItemData item = itemList.get(i + (ITEM_PER_PAGE * page));
             inventory.setItem(pos, item.getFormattedItem());
+
+            pos++;
         }
 
     }
@@ -143,7 +143,7 @@ public class AuctionInventory implements InventoryHolder, Listener {
 
             // 아이템 구매 확정
             boolean isDeclined = false;
-            if (clickedItem.isSimilar(acceptItem) || selectedData != null) {
+            if (clickedItem.isSimilar(acceptItem) && selectedData != null) {
                 try {
                     int index = IntStream.range(0, CTAuction.auctions.size())
                             .filter(i -> selectedData.item.isSimilar(CTAuction.auctions.get(i).item))
@@ -171,7 +171,7 @@ public class AuctionInventory implements InventoryHolder, Listener {
                 }
 
                 // destroy inventory
-                for (HumanEntity p : inventory.getViewers()) {
+                for (HumanEntity p : new ArrayList<>(inventory.getViewers())) {
                     p.closeInventory();
                 }
                 return;

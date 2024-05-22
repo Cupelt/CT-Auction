@@ -1,46 +1,29 @@
 package xyz.cheesetown.auction.utils;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 public class InventoryUtil {
-    public static ItemStack getPageItem(PageEnum type) {
-        ItemBuilder item = new ItemBuilder(Material.ARROW);
-
-        switch (type) {
-            case NEXT_PAGE -> item = item.setDisplayName("&e다음 페이지");
-            case PREV_PAGE -> item = item.setDisplayName("&e이전 페이지");
-        }
-
-        return item.build();
-    }
 
     public static ItemStack createDesignItem(Material mat) {
         return new ItemBuilder(mat).setDisplayName("&a").build();
     }
 
-    public static ItemStack createVerifyItem(VerifyEnum type, String msg) {
-
-        switch (type) {
-            case ACCEPT -> {
-                return new ItemBuilder(Material.LIME_WOOL)
-                        .setDisplayName("&a&l[ "+msg+" ]").build();
+    public static boolean canItemGivable(Player target, ItemStack itemStack) {
+        PlayerInventory playerInventory = target.getInventory();
+        int size = 0;
+        for (int i = 0; i < playerInventory.getSize(); i++) {
+            ItemStack item = playerInventory.getItem(i);
+            if (item == null || item.getType().isAir()) {
+                size += itemStack.getMaxStackSize();
+            } else if (item.isSimilar(itemStack)) {
+                size += item.getMaxStackSize() - item.getAmount();
             }
-            case DECLINE -> {
-                return new ItemBuilder(Material.RED_WOOL)
-                        .setDisplayName("&c&l[ "+msg+" ]").build();
-            }
+            if (size >= itemStack.getAmount())
+                return true;
         }
-
-        return null;
-    }
-
-
-    public enum PageEnum {
-        PREV_PAGE, NEXT_PAGE, SELECT_PAGE
-    }
-
-    public enum VerifyEnum {
-        ACCEPT, DECLINE
+        return false;
     }
 }

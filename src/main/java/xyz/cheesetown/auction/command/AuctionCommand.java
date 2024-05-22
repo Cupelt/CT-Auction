@@ -7,12 +7,14 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import xyz.cheesetown.auction.CTAuction;
+import xyz.cheesetown.auction.data.AuctionData;
 import xyz.cheesetown.auction.data.ItemData;
 import xyz.cheesetown.auction.inventory.AuctionInventory;
 import xyz.cheesetown.auction.utils.ColorUtil;
 
+import static xyz.cheesetown.auction.CTAuction.PREFIX;
+
 public class AuctionCommand implements CommandExecutor {
-    String PREFIX = "&f&l[&c&l경매&f&l] &f";
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String s, String[] args) {
@@ -36,8 +38,11 @@ public class AuctionCommand implements CommandExecutor {
                             msg.append(" ").append(args[i]);
                         }
                     }
-
-                    CTAuction.auctions.add(new ItemData(player, heldItem, price, msg.toString()));
+                    for (int i = 0; i < 20; i++) {
+                        AuctionData.getInstance()
+                                .registerItem(player, heldItem, price, msg.toString());
+                    }
+//                    CTAuction.auctions.add(new ItemData(player, heldItem, price, msg.toString()));
                     player.getInventory().setItemInMainHand(null);
                     sender.sendMessage(ColorUtil.toColorString(PREFIX + "&a성공적으로 아이템이 등록되었습니다!"));
                 } catch(NumberFormatException e) {

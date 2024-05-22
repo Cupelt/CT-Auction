@@ -4,16 +4,19 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import xyz.cheesetown.auction.command.AuctionCommand;
+import xyz.cheesetown.auction.data.AuctionData;
 import xyz.cheesetown.auction.data.ItemData;
+import xyz.cheesetown.auction.listeners.InventoryEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class CTAuction extends JavaPlugin {
 
-    public static List<ItemData> auctions = new ArrayList<>();
     private static CTAuction instance;
     private static Economy econ = null;
+
+    public static final String PREFIX = "&f&l[&c&l경매&f&f] &f";
 
     @Override
     public void onEnable() {
@@ -24,7 +27,11 @@ public final class CTAuction extends JavaPlugin {
             return;
         }
 
+        getServer().getPluginManager().registerEvents(new InventoryEventListener(), this);
+
         this.getCommand("auction").setExecutor(new AuctionCommand());
+
+        AuctionData.createInstance("");
 
         instance = this;
     }

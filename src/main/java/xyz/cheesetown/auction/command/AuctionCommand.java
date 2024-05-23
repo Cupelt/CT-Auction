@@ -6,10 +6,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import xyz.cheesetown.auction.CTAuction;
 import xyz.cheesetown.auction.data.AuctionData;
-import xyz.cheesetown.auction.data.ItemData;
-import xyz.cheesetown.auction.inventory.AuctionInventory;
+import xyz.cheesetown.auction.inventory.AuctionTrader;
 import xyz.cheesetown.auction.utils.ColorUtil;
 
 import static xyz.cheesetown.auction.CTAuction.PREFIX;
@@ -49,7 +47,7 @@ public class AuctionCommand implements CommandExecutor {
                     sender.sendMessage(ColorUtil.toColorString(PREFIX + "&4숫자만 입력 해 주세요."));
                 }
             } else if(args.length == 1 && args[0].equals("보기")) {
-                player.openInventory(new AuctionInventory(player).getInventory());
+                player.openInventory(new AuctionTrader(player, null).getInventory());
             } else {
                 return false;
             }

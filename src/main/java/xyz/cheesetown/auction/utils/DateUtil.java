@@ -5,6 +5,8 @@ import java.util.Date;
 
 public class DateUtil {
 
+    public static String DEFAULT_DATE_FORMAT = "yyyy.MM.dd/HH:mm:ss";
+
     public static String getDateStr(long timeStamp, String format) {
         if (format==null || format.equals("")) return null;
         Date date = new Date(timeStamp);

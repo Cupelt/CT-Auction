@@ -1,6 +1,5 @@
 package xyz.cheesetown.auction.api.inventory;
 
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 public interface IConfirmable {
@@ -9,8 +8,8 @@ public interface IConfirmable {
     public ItemStack getAcceptItem();
     public ItemStack getDeclineItem();
 
-    public void callAccept(InventoryClickEvent event);
-    public void callDecline(InventoryClickEvent event);
+    public void callAccept();
+    public void callDecline();
 
     public default Type isConfirmItem(ItemStack current) {
         if (current.isSimilar(getAcceptItem())) {
@@ -24,5 +23,9 @@ public interface IConfirmable {
 
     public enum Type {
         ACCEPT, DECLINE, NOT_MATCHED
+    }
+
+    public enum ConfirmState {
+        DESTROY, SUCCESS, FAIL
     }
 }

@@ -13,11 +13,11 @@ public class ItemData {
     public final OfflinePlayer owner;
     public final ItemStack item;
     public final int price;
-
-    public long timestamp;
     public final String message;
 
-    public boolean isSoldOut = false;
+    public long timestamp;
+    private long soldTimestamp;
+    private boolean isSoldOut = false;
     private boolean updateTimestampBefore = false;
 
 
@@ -38,17 +38,40 @@ public class ItemData {
         return updateTimestampBefore;
     }
 
+    public void makeSoldOut() {
+        this.soldTimestamp = System.currentTimeMillis();
+        isSoldOut = true;
+    }
+
+    public boolean isSoldOut() {
+        return isSoldOut;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
     public ItemStack getFormattedItem() {
+
+        String dateFormat;
+        if (isSoldOut) {
+            dateFormat = "판매 일자: &7" + DateUtil.getDateStr(timestamp, DateUtil.DEFAULT_DATE_FORMAT);
+        } else {
+            dateFormat = (!updateTimestampBefore ? "등록 일자: &7" : "마지막 끌어올리기: &b") +
+                    DateUtil.getDateStr(timestamp, "yyyy.MM.dd/HH:mm:ss");
+        }
+
+
         return new ItemBuilder(item.clone()).setLore(List.of(
                 "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
                 "",
                 "&7■ &f판매자: &a" + owner.getName(),
                 "&7■ &f상품 가격: &r" + String.format("%,d", price) +"&f원 ",
-                "&7■ &f" + (!updateTimestampBefore ? "등록 일자: &7" : "마지막 끌어올리기: &b") + DateUtil.getDateStr(timestamp, "yyyy.MM.dd/HH:mm:ss"),
+                "&7■ &f" + dateFormat,
                 "",
                 "&8&m━━━━━━━━━━━━━━━━&8유저 메시지&8&m━━━━━━━━━━━━━━━━━",
                 "",
-                "&f&o"+(message.isEmpty() ? "(메시지 없음.)" : message),
+                "&f&o"+(message.isEmpty() ? "(메시지 없음)" : message),
                 "",
                 "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )).build();

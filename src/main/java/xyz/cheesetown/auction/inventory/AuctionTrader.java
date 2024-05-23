@@ -7,6 +7,7 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import xyz.cheesetown.auction.CTAuction;
 import xyz.cheesetown.auction.api.inventory.IClickable;
@@ -21,12 +22,13 @@ import xyz.cheesetown.auction.utils.ColorUtil;
 import xyz.cheesetown.auction.utils.InventoryUtil;
 import xyz.cheesetown.auction.utils.ItemBuilder;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
 import static xyz.cheesetown.auction.CTAuction.PREFIX;
 
-public class AuctionInventory extends InventoryBase implements IClickable, IConfirmable, IPage {
+public class AuctionTrader extends InventoryBase implements IClickable, IConfirmable, IPage {
 
     public final int SLOT_SIZE = 54;
     public final int ITEM_PER_PAGE = 28;
@@ -36,8 +38,8 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
 
     private ItemData selectedData;
 
-    public AuctionInventory(Player player) {
-        super(player);
+    public AuctionTrader(Player player, @Nullable InventoryHolder backInventory) {
+        super(player, backInventory);
     }
 
     @Override
@@ -49,11 +51,8 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
     protected void initialize() {
         inventory.clear();
 
-        ItemStack red = InventoryUtil.createDesignItem(Material.RED_STAINED_GLASS_PANE);
+        ItemStack red = getOutLineItem();
         ItemStack info = getUserInfoItem();
-
-        ItemStack next = hasPage(page + 1) ? nextPageItem() : red;
-        ItemStack prev = hasPage(page - 1) ? prevPageItem() : red;
 
         ItemStack[] preset = {
                 red,red ,red ,red ,red ,red ,red ,red ,red,
@@ -61,14 +60,18 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
                 red,null,null,null,null,null,null,null,red,
                 red,null,null,null,null,null,null,null,red,
                 red,null,null,null,null,null,null,null,red,
-                red,red ,prev,red ,info,red ,next,red ,red,
+                red,red ,red ,red ,info,red ,red ,red ,red,
         };
 
         for (int i = 0; i < SLOT_SIZE; i++) {
             inventory.setItem(i, preset[i]);
         }
 
-        showPage(page);
+        if (hasPage(page)) {
+            showPage(page);
+        } else {
+            showPage(0);
+        }
     }
 
     @Override
@@ -82,13 +85,22 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
 
     @Override
     public int getMaxPage() {
-        return AuctionData.getInstance().getSize() / ITEM_PER_PAGE;
+        return AuctionData.getInstance().getSize() / ITEM_PER_PAGE + 1;
     }
 
     @Override
     public void showPage(int page) {
         List<ItemData> itemList = AuctionData.getInstance().getData();
 
+        // update ui
+        ItemStack next = hasPage(page + 1) ? nextPageItem() : getOutLineItem();
+        ItemStack prev = hasPage(page - 1) ? prevPageItem() : getOutLineItem();
+
+        inventory.setItem(48, prev);
+        inventory.setItem(50, next);
+        inventory.setItem(49, getUserInfoItem());
+
+        // fill items
         int pos = 9;
         for (int i = 0; i < ITEM_PER_PAGE; i++) {
 
@@ -117,70 +129,64 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
 
     @Override
     public void onClickEvent(InventoryClickEvent event) {
-        if (event.getInventory().getHolder() instanceof AuctionInventory holder) {
 
-            if (event.getCurrentItem() == null
-                ||!(event.getWhoClicked() instanceof Player)) {
+        if (event.getCurrentItem() == null
+            ||!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+
+        ItemStack clickedItem = event.getCurrentItem();
+        event.setCancelled(true);
+
+        // 아이템 구매 확정
+        IConfirmable.Type checkConfirm = isConfirmItem(clickedItem);
+        if (checkConfirm == IConfirmable.Type.ACCEPT && selectedData != null) {
+            callAccept();
+            return;
+        } else if (checkConfirm == IConfirmable.Type.DECLINE) {
+            callDecline();
+            return;
+        }
+
+        // 페이지 기능
+        IPage.Type checkPageMove = hasClickedPage(clickedItem);
+        if (checkPageMove != IPage.Type.NOT_MATCHED) {
+            int pageToMove = page;
+            if (checkPageMove == IPage.Type.NEXT) {
+                page++;
+            } else if (checkPageMove == IPage.Type.PREVIOUS) {
+                page--;
+            }
+
+            if(hasPage(page)) {
+                showPage(page);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1, 2);
                 return;
             }
+        }
 
-            ItemStack clickedItem = event.getCurrentItem();
-            event.setCancelled(true);
+        // 아이템 선택
+        ItemData data = AuctionData.getInstance()
+                .findFirstData(item -> clickedItem.isSimilar(item.getFormattedItem()));
 
-            // 아이템 구매 확정
-            IConfirmable.Type checkConfirm = isConfirmItem(clickedItem);
-            if (checkConfirm == IConfirmable.Type.ACCEPT && selectedData != null) {
-                callAccept(event);
-                // destroy inventory
-                for (HumanEntity p : new ArrayList<>(inventory.getViewers())) {
-                    p.closeInventory();
-                }
-                return;
-            } else if (checkConfirm == IConfirmable.Type.DECLINE) {
-                callDecline(event);
-                return;
-            }
+        if (data != null) {
+            ItemStack confirmItem = new ItemBuilder(data.item.clone())
+                    .setLore(List.of(
+                            "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                            "&e■ &f상품 가격: &r"+String.format("%,d", data.price)+"&f원",
+                            "&e■ &b이 아이템을 구매하는것이 확실한가요?",
+                            "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    ))
+                    .build();
 
-            // 페이지 기능
-            IPage.Type checkPageMove = hasClickedPage(clickedItem);
-            if (checkPageMove != IPage.Type.NOT_MATCHED) {
-                int pageToMove = page;
-                if (checkPageMove == IPage.Type.NEXT) {
-                    page++;
-                } else if (checkPageMove == IPage.Type.PREVIOUS) {
-                    page--;
-                }
-
-                if(hasPage(page)) {
-                    showPage(page);
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1, 2);
-                    return;
-                }
-            }
-
-            // 아이템 선택
-            ItemData data = AuctionData.getInstance()
-                    .findFirstData(item -> clickedItem.isSimilar(item.getFormattedItem()));
-
-            if (data != null) {
-                ItemStack confirmItem = new ItemBuilder(data.item.clone())
-                        .setLore(List.of(
-                                "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-                                "&e■ &f상품 가격: &r"+String.format("%,d", data.price)+"&f원",
-                                "&e■ &b이 아이템을 구매하는것이 확실한가요?",
-                                "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                        ))
-                        .build();
-
-                showConfirmUI(confirmItem);
-                selectedData = data;
-            }
-
+            showConfirmUI(confirmItem);
+            selectedData = data;
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1, 2);
         }
     }
 
     @Override
-    public void callAccept(InventoryClickEvent event) {
+    public void callAccept() {
         try {
             if (!InventoryUtil.canItemGivable(player, selectedData.item)) {
                 throw new CannotGiveableSlotException();
@@ -191,6 +197,7 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
             AuctionData.getInstance()
                     .makeSoldOut(selectedData);
             player.getInventory().addItem(selectedData.item);
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1, 2);
 
         } catch (NoHaveItemDataException e) {
             player.sendMessage(ColorUtil.toColorString(PREFIX + "&7아이템이 이미 구매되었거나 잘못 되었습니다."));
@@ -202,12 +209,17 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
             player.sendMessage(ColorUtil.toColorString(PREFIX + "&7인벤토리 공간이 부족합니다."));
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1, 2);
         }
+
+        for (HumanEntity p : new ArrayList<>(inventory.getViewers())) {
+            p.closeInventory();
+        }
     }
 
     @Override
-    public void callDecline(InventoryClickEvent event) {
+    public void callDecline() {
         selectedData = null;
-        ((AuctionInventory) event.getInventory().getHolder()).initialize();
+        this.initialize();
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1, 2);
     }
 
     private void tryPayment(ItemData data) throws NotEnoughBalanceException, NoHaveItemDataException {
@@ -224,17 +236,35 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
         CTAuction.getEconomy().withdrawPlayer(player, data.price);
     }
 
+    public ItemStack getOutLineItem() {
+        return InventoryUtil.createDesignItem(Material.RED_STAINED_GLASS_PANE);
+    }
+
     @Override
     public ItemStack getAcceptItem() {
         return new ItemBuilder(Material.LIME_WOOL)
                 .setDisplayName("&a&l[ 구매 ]")
+                .setLore(List.of(
+                        "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                        "",
+                        "&e■ 아이템을 구매합니다.",
+                        "",
+                        "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                ))
                 .build();
     }
 
     @Override
     public ItemStack getDeclineItem() {
-        return new ItemBuilder(Material.LIME_WOOL)
+        return new ItemBuilder(Material.RED_WOOL)
                 .setDisplayName("&c&l[ 취소 ]")
+                .setLore(List.of(
+                        "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                        "",
+                        "&9■ 구매를 취소합니다.",
+                        "",
+                        "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                ))
                 .build();
     }
 
@@ -260,8 +290,9 @@ public class AuctionInventory extends InventoryBase implements IClickable, IConf
                         "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
                         "&e■ &f현재 소지금은 &7" + String.format("%,d", (int) CTAuction.getEconomy().getBalance(player)) + "원&f입니다.",
                         "&e■ &f경매에서 다양한 아이템들을 구매하거나 판매해보세요.",
-                        "",
                         "&e■ &f현재 페이지: ( &7" + (page + 1) + " &f/ &8" + getMaxPage() +" &f)",
+                        "",
+                        "&c> 클릭하면 뒤로 갑니다. <",
                         "",
                         "&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 ))
